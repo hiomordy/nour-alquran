@@ -1,0 +1,1 @@
+-- No migration needed for navigation changes, those are code changes

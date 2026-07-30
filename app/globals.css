@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&family=Amiri:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+@layer base {
+  :root {
+    --background: 40 30% 98%;
+    --foreground: 160 30% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 160 30% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 160 30% 8%;
+    --primary: 161 84% 21%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 44 87% 50%;
+    --secondary-foreground: 160 30% 8%;
+    --muted: 40 20% 94%;
+    --muted-foreground: 160 15% 45%;
+    --accent: 161 60% 90%;
+    --accent-foreground: 161 84% 21%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 20% 88%;
+    --input: 40 20% 88%;
+    --ring: 161 84% 21%;
+    --radius: 0.75rem;
+    --chart-1: 161 84% 25%;
+    --chart-2: 44 87% 50%;
+    --chart-3: 200 70% 40%;
+    --chart-4: 280 60% 50%;
+    --chart-5: 15 80% 55%;
+  }
+
+  .dark {
+    --background: 220 25% 8%;
+    --foreground: 40 30% 95%;
+    --card: 220 22% 11%;
+    --card-foreground: 40 30% 95%;
+    --popover: 220 22% 11%;
+    --popover-foreground: 40 30% 95%;
+    --primary: 161 70% 42%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 44 80% 48%;
+    --secondary-foreground: 220 25% 8%;
+    --muted: 220 20% 16%;
+    --muted-foreground: 40 15% 60%;
+    --accent: 161 40% 18%;
+    --accent-foreground: 161 70% 65%;
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 20% 18%;
+    --input: 220 20% 18%;
+    --ring: 161 70% 42%;
+    --chart-1: 161 70% 45%;
+    --chart-2: 44 80% 55%;
+    --chart-3: 200 65% 50%;
+    --chart-4: 280 55% 60%;
+    --chart-5: 15 75% 60%;
+  }
+
+  * { @apply border-border; }
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Cairo', sans-serif;
+    direction: rtl;
+  }
+}
+
+.quran-font {
+  font-family: 'Amiri', serif;
+  line-height: 2.2;
+}
+
+.islamic-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='100'%3E%3Crect width='56' height='100' fill='none'/%3E%3Cpath d='M28 66L0 50L0 16L28 0L56 16L56 50L28 66L28 100' fill='none' stroke='%23059669' stroke-opacity='0.07' stroke-width='1'/%3E%3Cpath d='M28 0L28 34L0 50' fill='none' stroke='%23059669' stroke-opacity='0.07' stroke-width='1'/%3E%3Cpath d='M28 34L56 50' fill='none' stroke='%23059669' stroke-opacity='0.07' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: hsl(var(--muted)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--primary) / 0.5); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.8); }
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.float-animation { animation: float 3s ease-in-out infinite; }
+
+@keyframes shine {
+  from { background-position: -200% center; }
+  to { background-position: 200% center; }
+}
+.gold-shine {
+  background: linear-gradient(90deg, #B8860B, #FFD700, #DAA520, #FFD700, #B8860B);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shine 3s linear infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.9); }
+}
+.twinkle { animation: twinkle 2s ease-in-out infinite; }
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.4); }
+  70% { transform: scale(1); box-shadow: 0 0 0 8px rgba(5, 150, 105, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+}
+.pulse-ring { animation: pulse-ring 2s infinite; }
+
+.card-hover { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(5, 150, 105, 0.15); }
+
+.hero-gradient {
+  background: linear-gradient(135deg, hsl(161 84% 14%) 0%, hsl(161 84% 21%) 40%, hsl(195 70% 28%) 100%);
+}
+
+.glass {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.dark .glass {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.badge-gold { background: linear-gradient(135deg, #FFD700, #FFA500, #FFD700); box-shadow: 0 2px 8px rgba(255,165,0,.4); }
+.badge-silver { background: linear-gradient(135deg, #C0C0C0, #A8A8A8, #C0C0C0); box-shadow: 0 2px 8px rgba(160,160,160,.4); }
+.badge-bronze { background: linear-gradient(135deg, #CD7F32, #A0522D, #CD7F32); box-shadow: 0 2px 8px rgba(160,82,45,.4); }
+
+@keyframes xp-fill { from { width: 0; } }
+.xp-bar { animation: xp-fill 1s ease-out forwards; }
+
+@keyframes bounce-in {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.bounce-in { animation: bounce-in 0.4s ease-out; }
