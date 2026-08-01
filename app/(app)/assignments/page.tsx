@@ -12,26 +12,48 @@ import {
 interface StudentProfile { id: string; name: string; role: 'teacher' | 'student'; teacher_id?: string }
 interface StudentGroup { id: string; name: string }
 
-interface StudentAssignment {
+interface Assignment {
   id: string;
-  student_id: string;
   teacher_id: string;
+  group_id: string | null;
+  student_id: string | null;
+  title: string;
   surah_number: number;
   surah_name: string;
-  ayah_from: number;
-  ayah_to: number;
-  repeats: number;
-  repeats_done: number;
-  due_date: string;
-  status: 'pending' | 'in_progress' | 'submitted' | 'approved' | 'rejected' | 'overdue';
-  notes?: string;
+  start_ayah: number;
+  end_ayah: number;
+  ayah_count: number;
+  repeat_count: number;
+  due_date: string | null;
+  notes: string | null;
+  points_reward: number;
+  status: string;
+  created_at: string;
+}
+
+interface StudentAssignment {
+  id: string;
+  assignment_id: string;
+  student_id: string;
+  status: string;
+  completed_repeats: number;
+  score_memorization: number | null;
+  score_tajweed: number | null;
+  score_commitment: number | null;
+  teacher_notes: string | null;
+  student_notes: string | null;
+  submitted_at: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
   penalty_xp: number;
   penalty_applied: boolean;
-  created_at: string;
+  assignment: Assignment;
   student?: { name: string };
 }
 
-function isOverdue(dueDate: string) {
+function isOverdue(dueDate: string | null) {
+  if (!dueDate) return false;
   return new Date(dueDate) < new Date(new Date().toDateString());
 }
 
@@ -67,33 +89,39 @@ export default function AssignmentsPage() {
       if (profile?.role === 'teacher') {
         const { data, error: err } = await supabase
           .from('student_assignments')
-          .select('id,student_id,teacher_id,surah_number,surah_name,ayah_from,ayah_to,repeats,repeats_done,due_date,status,notes,penalty_xp,penalty_applied,created_at,profiles:student_id(name)')
-          .eq('teacher_id', profile.id)
+          .select('id,assignment_id,student_id,status,completed_repeats,score_memorization,score_tajweed,score_commitment,teacher_notes,student_notes,submitted_at,approved_at,created_at,updated_at,penalty_xp,penalty_applied,assignment:assignment_id(id,teacher_id,group_id,student_id,title,surah_number,surah_name,start_ayah,end_ayah,ayah_count,repeat_count,due_date,notes,points_reward,status,created_at),student:student_id(name)')
           .order('created_at', { ascending: false });
         if (err) throw err;
-        setAssignments(data?.map((d: any) => ({ ...d, student: d.profiles })) || []);
+        setAssignments((data || []) as unknown as StudentAssignment[]);
       } else {
         const { data, error: err } = await supabase
           .from('student_assignments')
-          .select('*')
+          .select('id,assignment_id,student_id,status,completed_repeats,score_memorization,score_tajweed,score_commitment,teacher_notes,student_notes,submitted_at,approved_at,created_at,updated_at,penalty_xp,penalty_applied,assignment:assignment_id(id,teacher_id,group_id,student_id,title,surah_number,surah_name,start_ayah,end_ayah,ayah_count,repeat_count,due_date,notes,points_reward,status,created_at)')
           .eq('student_id', profile?.id)
-          .order('due_date', { ascending: true });
+          .order('created_at', { ascending: false });
         if (err) throw err;
 
+        const studentAssignments = (data || []) as unknown as StudentAssignment[];
+
         // Apply penalties for overdue assignments client-side
-        const toDeduct = (data || []).filter(
-          (a) => isOverdue(a.due_date) && a.status === 'pending' && !a.penalty_applied
+        const toDeduct = studentAssignments.filter(
+          (a) => isOverdue(a.assignment.due_date) && a.status === 'pending' && !a.penalty_applied
         );
         for (const a of toDeduct) {
           await applyPenalty(a);
         }
 
-        const { data: fresh } = await supabase
-          .from('student_assignments')
-          .select('*')
-          .eq('student_id', profile?.id)
-          .order('due_date', { ascending: true });
-        setAssignments(fresh || []);
+        // Re-fetch after penalties
+        if (toDeduct.length > 0) {
+          const { data: fresh } = await supabase
+            .from('student_assignments')
+            .select('id,assignment_id,student_id,status,completed_repeats,score_memorization,score_tajweed,score_commitment,teacher_notes,student_notes,submitted_at,approved_at,created_at,updated_at,penalty_xp,penalty_applied,assignment:assignment_id(id,teacher_id,group_id,student_id,title,surah_number,surah_name,start_ayah,end_ayah,ayah_count,repeat_count,due_date,notes,points_reward,status,created_at)')
+            .eq('student_id', profile?.id)
+            .order('created_at', { ascending: false });
+          setAssignments((fresh || []) as unknown as StudentAssignment[]);
+        } else {
+          setAssignments(studentAssignments);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -103,23 +131,23 @@ export default function AssignmentsPage() {
     }
   };
 
-  const applyPenalty = async (assignment: StudentAssignment) => {
+  const applyPenalty = async (sa: StudentAssignment) => {
     if (!profile?.id) return;
     await supabase
       .from('student_assignments')
       .update({ status: 'overdue', penalty_applied: true })
-      .eq('id', assignment.id);
+      .eq('id', sa.id);
 
-    const { data: prof } = await supabase.from('profiles').select('xp').eq('id', profile.id).single();
+    const { data: prof } = await supabase.from('profiles').select('xp').eq('id', profile.id).maybeSingle();
     if (prof) {
-      const newXp = Math.max(0, (prof.xp || 0) - assignment.penalty_xp);
+      const newXp = Math.max(0, (prof.xp || 0) - sa.penalty_xp);
       await supabase.from('profiles').update({ xp: newXp }).eq('id', profile.id);
     }
 
     await supabase.from('notifications').insert({
       user_id: profile.id,
       title: 'تجاوزت موعد الواجب',
-      body: `لم تُسلّم ورد سورة ${assignment.surah_name} في الموعد. خُصم ${assignment.penalty_xp} نقطة XP من رصيدك.`,
+      body: `لم تُسلّم ورد سورة ${sa.assignment.surah_name} في الموعد. خُصم ${sa.penalty_xp} نقطة XP من رصيدك.`,
       type: 'assignment',
       read: false,
     });
@@ -140,41 +168,74 @@ export default function AssignmentsPage() {
     const surah = SURAHS.find((s) => s.number === parseInt(formData.surah));
     if (!surah) { setError('اختر سورة صحيحة'); return; }
 
+    const ayahFrom = parseInt(formData.ayah_from);
+    const ayahTo = parseInt(formData.ayah_to);
+    if (!ayahFrom || !ayahTo || ayahTo < ayahFrom) { setError('تحقق من نطاق الآيات'); return; }
+
     try {
       setSubmitting(true); setError(null);
-      const baseData = {
-        surah_number: surah.number, surah_name: surah.name,
-        ayah_from: parseInt(formData.ayah_from), ayah_to: parseInt(formData.ayah_to),
-        repeats: parseInt(formData.repeats), repeats_done: 0,
-        due_date: formData.due_date, status: 'pending', teacher_id: profile.id,
-        penalty_xp: parseInt(formData.penalty_xp) || 20, penalty_applied: false,
-      };
 
       let studentsToAssign: string[] = [];
+      let groupId: string | null = null;
+      let singleStudentId: string | null = null;
+
       if (formData.assign_to === 'all') {
         studentsToAssign = students.map((s) => s.id);
       } else if (formData.assign_to === 'student') {
         if (!formData.student_id) { setError('اختر طالباً'); return; }
         studentsToAssign = [formData.student_id];
+        singleStudentId = formData.student_id;
       } else if (formData.assign_to === 'group') {
         if (!formData.group_id) { setError('اختر مجموعة'); return; }
+        groupId = formData.group_id;
         const { data: members } = await supabase.from('group_members').select('student_id').eq('group_id', formData.group_id);
         studentsToAssign = members?.map((m) => m.student_id) || [];
       }
 
       if (studentsToAssign.length === 0) { setError('لا يوجد طلاب للتعيين'); return; }
 
-      const { error: insertErr } = await supabase.from('student_assignments').insert(
-        studentsToAssign.map((id) => ({ ...baseData, student_id: id }))
-      );
-      if (insertErr) throw insertErr;
+      // Create the parent assignment
+      const { data: assignment, error: assignmentErr } = await supabase
+        .from('assignments')
+        .insert({
+          teacher_id: profile.id,
+          group_id: groupId,
+          student_id: singleStudentId,
+          title: `سورة ${surah.name} — الآيات ${ayahFrom}-${ayahTo}`,
+          surah_number: surah.number,
+          surah_name: surah.name,
+          start_ayah: ayahFrom,
+          end_ayah: ayahTo,
+          ayah_count: ayahTo - ayahFrom + 1,
+          repeat_count: parseInt(formData.repeats),
+          due_date: formData.due_date || null,
+          points_reward: 50,
+          status: 'active',
+        })
+        .select()
+        .single();
+
+      if (assignmentErr) throw assignmentErr;
+
+      // Create student_assignment rows for each student
+      const studentAssignmentRows = studentsToAssign.map((studentId) => ({
+        assignment_id: assignment.id,
+        student_id: studentId,
+        status: 'pending',
+        completed_repeats: 0,
+        penalty_xp: parseInt(formData.penalty_xp) || 20,
+        penalty_applied: false,
+      }));
+
+      const { error: saErr } = await supabase.from('student_assignments').insert(studentAssignmentRows);
+      if (saErr) throw saErr;
 
       // Send notification to each student
       await supabase.from('notifications').insert(
         studentsToAssign.map((id) => ({
           user_id: id,
           title: 'ورد جديد',
-          body: `تم تكليفك بورد سورة ${surah.name} (الآيات ${formData.ayah_from}–${formData.ayah_to}) — يُسلَّم قبل ${new Date(formData.due_date).toLocaleDateString('ar-SA')}`,
+          body: `تم تكليفك بورد سورة ${surah.name} (الآيات ${ayahFrom}–${ayahTo}) — يُسلَّم قبل ${new Date(formData.due_date).toLocaleDateString('ar-SA')}`,
           type: 'assignment', read: false,
         }))
       );
@@ -189,36 +250,71 @@ export default function AssignmentsPage() {
     }
   };
 
-  const handleApproveAssignment = async (assignmentId: string) => {
+  const handleApproveAssignment = async (studentAssignmentId: string) => {
     try {
-      const { data: a } = await supabase.from('student_assignments').select('student_id,surah_name').eq('id', assignmentId).single();
-      if (!a) return;
-      await supabase.from('student_assignments').update({ status: 'approved' }).eq('id', assignmentId);
-      const { data: prof } = await supabase.from('profiles').select('xp,coins').eq('id', a.student_id).single();
-      if (prof) await supabase.from('profiles').update({ xp: (prof.xp || 0) + 50, coins: (prof.coins || 0) + 20 }).eq('id', a.student_id);
-      await supabase.from('notifications').insert({ user_id: a.student_id, title: 'تم قبول الورد', body: `تم قبول ورد سورة ${a.surah_name}. حصلت على 50 XP و 20 عملة!`, type: 'assignment', read: false });
+      const { data: sa } = await supabase.from('student_assignments')
+        .select('student_id,assignment:assignment_id(surah_name)')
+        .eq('id', studentAssignmentId).maybeSingle();
+      if (!sa) return;
+
+      await supabase.from('student_assignments').update({
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+      }).eq('id', studentAssignmentId);
+
+      const saData = sa as any;
+      const { data: prof } = await supabase.from('profiles').select('xp,coins').eq('id', saData.student_id).maybeSingle();
+      if (prof) {
+        await supabase.from('profiles').update({
+          xp: (prof.xp || 0) + 50,
+          coins: (prof.coins || 0) + 20,
+        }).eq('id', saData.student_id);
+      }
+
+      await supabase.from('notifications').insert({
+        user_id: saData.student_id,
+        title: 'تم قبول الورد',
+        body: `تم قبول ورد سورة ${saData.assignment.surah_name}. حصلت على 50 XP و 20 عملة!`,
+        type: 'assignment', read: false,
+      });
       await fetchAssignments();
     } catch (err) { setError('خطأ في قبول الواجب'); }
   };
 
-  const handleRejectAssignment = async (assignmentId: string) => {
+  const handleRejectAssignment = async (studentAssignmentId: string) => {
     try {
-      const { data: a } = await supabase.from('student_assignments').select('student_id,surah_name').eq('id', assignmentId).single();
-      if (!a) return;
-      await supabase.from('student_assignments').update({ status: 'rejected' }).eq('id', assignmentId);
-      await supabase.from('notifications').insert({ user_id: a.student_id, title: 'تم رفض الورد', body: `تم رفض ورد سورة ${a.surah_name}. يرجى المراجعة والإعادة.`, type: 'assignment', read: false });
+      const { data: sa } = await supabase.from('student_assignments')
+        .select('student_id,assignment:assignment_id(surah_name)')
+        .eq('id', studentAssignmentId).maybeSingle();
+      if (!sa) return;
+
+      await supabase.from('student_assignments').update({ status: 'rejected' }).eq('id', studentAssignmentId);
+
+      const saData = sa as any;
+      await supabase.from('notifications').insert({
+        user_id: saData.student_id,
+        title: 'تم رفض الورد',
+        body: `تم رفض ورد سورة ${saData.assignment.surah_name}. يرجى المراجعة والإعادة.`,
+        type: 'assignment', read: false,
+      });
       await fetchAssignments();
     } catch (err) { setError('خطأ في رفض الواجب'); }
   };
 
   const handleIncrementRepeats = async (id: string, done: number, max: number) => {
     if (done >= max) return;
-    await supabase.from('student_assignments').update({ repeats_done: done + 1, status: 'in_progress' }).eq('id', id);
+    await supabase.from('student_assignments').update({
+      completed_repeats: done + 1,
+      status: 'in_progress',
+    }).eq('id', id);
     await fetchAssignments();
   };
 
   const handleSubmitAssignment = async (id: string) => {
-    await supabase.from('student_assignments').update({ status: 'submitted' }).eq('id', id);
+    await supabase.from('student_assignments').update({
+      status: 'submitted',
+      submitted_at: new Date().toISOString(),
+    }).eq('id', id);
     await fetchAssignments();
   };
 
@@ -243,7 +339,7 @@ export default function AssignmentsPage() {
     overdue:    { ar: 'فات الميعاد',       color: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300' },
   };
 
-  const ORDER: StudentAssignment['status'][] = ['submitted', 'in_progress', 'pending', 'overdue', 'rejected', 'approved'];
+  const ORDER: string[] = ['submitted', 'in_progress', 'pending', 'overdue', 'rejected', 'approved'];
   const grouped = ORDER.reduce((acc, s) => {
     acc[s] = assignments.filter(a => a.status === s);
     return acc;
@@ -412,9 +508,10 @@ export default function AssignmentsPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {items.map(a => {
-                    const daysLeft = Math.ceil((new Date(a.due_date).getTime() - Date.now()) / 86400000);
-                    const overdueSelf = isOverdue(a.due_date) && a.status !== 'approved';
-                    const progressPct = a.repeats > 0 ? (a.repeats_done / a.repeats) * 100 : 0;
+                    const dueDate = a.assignment.due_date;
+                    const daysLeft = dueDate ? Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86400000) : null;
+                    const overdueSelf = isOverdue(dueDate) && a.status !== 'approved';
+                    const progressPct = a.assignment.repeat_count > 0 ? (a.completed_repeats / a.assignment.repeat_count) * 100 : 0;
 
                     return (
                       <div key={a.id} className={`bg-card border rounded-2xl p-5 transition-shadow hover:shadow-md ${overdueSelf && !a.penalty_applied ? 'border-red-300 dark:border-red-800' : 'border-border'}`}>
@@ -425,8 +522,8 @@ export default function AssignmentsPage() {
                               <BookOpen className="w-4.5 h-4.5 text-primary" style={{ width: 18, height: 18 }} />
                             </div>
                             <div>
-                              <h3 className="font-bold text-foreground text-sm">سورة {a.surah_name}</h3>
-                              <p className="text-xs text-muted-foreground">الآيات {a.ayah_from}–{a.ayah_to}</p>
+                              <h3 className="font-bold text-foreground text-sm">سورة {a.assignment.surah_name}</h3>
+                              <p className="text-xs text-muted-foreground">الآيات {a.assignment.start_ayah}–{a.assignment.end_ayah}</p>
                             </div>
                           </div>
                           <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${color}`}>{label}</span>
@@ -443,7 +540,7 @@ export default function AssignmentsPage() {
                         <div className="mb-3">
                           <div className="flex justify-between text-xs text-muted-foreground mb-1">
                             <span>التكرارات</span>
-                            <span className="font-semibold text-primary">{a.repeats_done}/{a.repeats}</span>
+                            <span className="font-semibold text-primary">{a.completed_repeats}/{a.assignment.repeat_count}</span>
                           </div>
                           <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                             <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progressPct}%` }} />
@@ -454,7 +551,7 @@ export default function AssignmentsPage() {
                         <div className="flex items-center justify-between text-xs mb-4">
                           <div className={`flex items-center gap-1 ${overdueSelf ? 'text-red-500 font-semibold' : 'text-muted-foreground'}`}>
                             <Clock className="w-3.5 h-3.5" />
-                            {overdueSelf ? 'فات الموعد' : daysLeft === 0 ? 'آخر اليوم' : daysLeft > 0 ? `${daysLeft} يوم متبقي` : 'فات الموعد'}
+                            {overdueSelf ? 'فات الموعد' : daysLeft === 0 ? 'آخر اليوم' : daysLeft !== null && daysLeft > 0 ? `${daysLeft} يوم متبقي` : 'فات الموعد'}
                           </div>
                           {a.penalty_xp > 0 && (
                             <div className="flex items-center gap-1 text-red-500">
@@ -485,13 +582,13 @@ export default function AssignmentsPage() {
                         ) : (
                           (a.status === 'pending' || a.status === 'in_progress') && (
                             <div className="space-y-2">
-                              {a.repeats_done < a.repeats && (
-                                <button onClick={() => handleIncrementRepeats(a.id, a.repeats_done, a.repeats)}
+                              {a.completed_repeats < a.assignment.repeat_count && (
+                                <button onClick={() => handleIncrementRepeats(a.id, a.completed_repeats, a.assignment.repeat_count)}
                                   className="w-full flex items-center justify-center gap-1.5 py-2 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl transition-colors text-xs font-bold">
-                                  <Plus className="w-3.5 h-3.5" /> تكرار آخر ({a.repeats_done}/{a.repeats})
+                                  <Plus className="w-3.5 h-3.5" /> تكرار آخر ({a.completed_repeats}/{a.assignment.repeat_count})
                                 </button>
                               )}
-                              {a.repeats_done >= a.repeats && (
+                              {a.completed_repeats >= a.assignment.repeat_count && (
                                 <button onClick={() => handleSubmitAssignment(a.id)}
                                   className="w-full py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors text-xs font-bold">
                                   تسليم الورد

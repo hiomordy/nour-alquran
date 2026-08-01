@@ -44,7 +44,7 @@ export default function TeacherDashboard() {
     if (!profile) return
     const [studentsRes, assignRes, topRes] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'student').eq('teacher_id', profile.id),
-      supabase.from('student_assignments').select('status', { count: 'exact' }).eq('teacher_id', profile.id),
+      supabase.from('student_assignments').select('status,assignment:assignment_id(teacher_id)', { count: 'exact' }).eq('assignment.teacher_id', profile.id),
       supabase.from('profiles').select('id,name,xp,level,streak_days').eq('role', 'student').eq('teacher_id', profile.id).order('xp', { ascending: false }).limit(5),
     ])
 

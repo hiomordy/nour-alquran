@@ -518,8 +518,9 @@ export default function LiveRoomPage() {
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS })
     peersRef.current.set(remoteUserId, pc)
 
-    // Use processed stream (with virtual bg) if available, else raw stream
-    const sendStream = processedStreamRef.current || localStreamRef.current
+    // Use screen share track if screen sharing, else processed stream (with virtual bg) if available, else raw stream
+    const screenStream = screenStreamRef.current
+    const sendStream = screenStream || processedStreamRef.current || localStreamRef.current
     if (sendStream) {
       sendStream.getTracks().forEach((track) => {
         pc.addTrack(track, sendStream)
@@ -711,6 +712,8 @@ export default function LiveRoomPage() {
           if (sender) sender.replaceTrack(screenTrack)
         })
         screenTrack.onended = () => {
+          screenStreamRef.current?.getTracks().forEach((t) => t.stop())
+          screenStreamRef.current = null
           setScreenSharing(false)
           const stream = processedStreamRef.current || localStreamRef.current
           if (localVideoRef.current && stream) {

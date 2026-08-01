@@ -39,8 +39,14 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
+// Split into words preserving diacritics for display
 function getWords(text: string): string[] {
-  return text.replace(/[\u064B-\u065F\u0670\u0640]/g, "").split(/\s+/).filter(w => w.length > 0);
+  return text.split(/\s+/).filter(w => w.length > 0);
+}
+
+// Normalize for comparison only (strip tashkeel + tatweel)
+function normalize(word: string): string {
+  return word.replace(/[\u064B-\u065F\u0670\u0640]/g, "");
 }
 
 function removeLastWords(text: string, count: number): string {
@@ -54,8 +60,17 @@ function pickRandomAyahs(ayahs: Ayah[], count: number): Ayah[] {
 }
 
 function generateDistractors(correct: string, pool: string[], count: number): string[] {
-  const others = pool.filter(w => w !== correct && w.length >= 2);
-  return shuffle(others).slice(0, count);
+  const correctNorm = normalize(correct);
+  const seen = new Set<string>([correctNorm]);
+  const result: string[] = [];
+  for (const w of shuffle(pool)) {
+    if (result.length >= count) break;
+    const wn = normalize(w);
+    if (wn === correctNorm || seen.has(wn) || wn.length < 2) continue;
+    seen.add(wn);
+    result.push(w);
+  }
+  return result;
 }
 
 function generateQuestions(ayahs: Ayah[], difficulty: string, surahName: string): QuizQuestion[] {
@@ -63,7 +78,6 @@ function generateQuestions(ayahs: Ayah[], difficulty: string, surahName: string)
   let order = 1;
 
   const wordsPool = ayahs.flatMap(a => getWords(a.text));
-  const uniqueWords = Array.from(new Set(wordsPool));
 
   // Question 1: Surah name (always)
   const fakeNames = ["الإسراء", "النحل", "الأعراف", "الرعد", "الشعراء", "النمل", "القصص", "العنكبوت"]
@@ -89,7 +103,7 @@ function generateQuestions(ayahs: Ayah[], difficulty: string, surahName: string)
     const before = words.slice(0, missingIdx).join(" ");
     const after = words.slice(missingIdx + 1).join(" ");
 
-    const distractors = generateDistractors(missingWord, uniqueWords, 3);
+    const distractors = generateDistractors(missingWord, wordsPool, 3);
     if (distractors.length < 3) continue;
 
     questions.push({
