@@ -177,7 +177,7 @@ export default function AssignQuizPage() {
       await supabase.from('notifications').insert({
         user_id: selectedStudent,
         title: 'اختبار جديد',
-        body: `تم تكليفك باختبار سورة ${surah.name} — ${questions.length} أسئلة`,
+        content: `تم تكليفك باختبار سورة ${surah.name} — ${questions.length} أسئلة`,
         type: 'quiz',
         read: false,
       })

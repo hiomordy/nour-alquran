@@ -146,8 +146,9 @@ export default function AssignmentsPage() {
 
     await supabase.from('notifications').insert({
       user_id: profile.id,
+      sender_id: profile.id,
       title: 'تجاوزت موعد الواجب',
-      body: `لم تُسلّم ورد سورة ${sa.assignment.surah_name} في الموعد. خُصم ${sa.penalty_xp} نقطة XP من رصيدك.`,
+      content: `لم تُسلّم ورد سورة ${sa.assignment.surah_name} في الموعد. خُصم ${sa.penalty_xp} نقطة XP من رصيدك.`,
       type: 'assignment',
       read: false,
     });
@@ -235,7 +236,7 @@ export default function AssignmentsPage() {
         studentsToAssign.map((id) => ({
           user_id: id,
           title: 'ورد جديد',
-          body: `تم تكليفك بورد سورة ${surah.name} (الآيات ${ayahFrom}–${ayahTo}) — يُسلَّم قبل ${new Date(formData.due_date).toLocaleDateString('ar-SA')}`,
+          content: `تم تكليفك بورد سورة ${surah.name} (الآيات ${ayahFrom}–${ayahTo}) — يُسلَّم قبل ${new Date(formData.due_date).toLocaleDateString('ar-SA')}`,
           type: 'assignment', read: false,
         }))
       );
@@ -274,7 +275,7 @@ export default function AssignmentsPage() {
       await supabase.from('notifications').insert({
         user_id: saData.student_id,
         title: 'تم قبول الورد',
-        body: `تم قبول ورد سورة ${saData.assignment.surah_name}. حصلت على 50 XP و 20 عملة!`,
+        content: `تم قبول ورد سورة ${saData.assignment.surah_name}. حصلت على 50 XP و 20 عملة!`,
         type: 'assignment', read: false,
       });
       await fetchAssignments();
@@ -294,7 +295,7 @@ export default function AssignmentsPage() {
       await supabase.from('notifications').insert({
         user_id: saData.student_id,
         title: 'تم رفض الورد',
-        body: `تم رفض ورد سورة ${saData.assignment.surah_name}. يرجى المراجعة والإعادة.`,
+        content: `تم رفض ورد سورة ${saData.assignment.surah_name}. يرجى المراجعة والإعادة.`,
         type: 'assignment', read: false,
       });
       await fetchAssignments();

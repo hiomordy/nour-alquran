@@ -13,7 +13,7 @@ type NotificationType = 'assignment' | 'achievement' | 'note' | 'general' | 'stu
 interface Notification {
   id: string
   title: string
-  body: string
+  content: string
   type: NotificationType
   read: boolean
   created_at: string
@@ -279,7 +279,7 @@ export default function NotificationsPage() {
                           <p className={`text-sm line-clamp-2 font-cairo ${
                             isUnread ? 'text-gray-700' : 'text-gray-600'
                           }`}>
-                            {notification.body}
+                            {notification.content}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
                             <span className="text-xs text-gray-500 font-cairo">

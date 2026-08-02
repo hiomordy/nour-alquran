@@ -141,7 +141,7 @@ export default function StudentsPage() {
       await supabase.from('notifications').insert({
         user_id: studentId,
         title: 'تم قبول طلبك',
-        body: 'لقد تم قبول طلبك للانضمام إلى مجموعة المعلم. يمكنك الآن البدء في التعلم!',
+        content: 'لقد تم قبول طلبك للانضمام إلى مجموعة المعلم. يمكنك الآن البدء في التعلم!',
         type: 'student_join_request',
         read: false,
         created_at: new Date().toISOString(),
@@ -167,7 +167,7 @@ export default function StudentsPage() {
       await supabase.from('notifications').insert({
         user_id: studentId,
         title: 'تم رفض طلبك',
-        body: 'لم يتم قبول طلبك للانضمام إلى مجموعة المعلم. يمكنك البحث عن معلم آخر.',
+        content: 'لم يتم قبول طلبك للانضمام إلى مجموعة المعلم. يمكنك البحث عن معلم آخر.',
         type: 'student_join_request',
         read: false,
         created_at: new Date().toISOString(),
@@ -233,7 +233,7 @@ export default function StudentsPage() {
       const { error } = await supabase.from('notifications').insert({
         user_id: selectedStudentId,
         title: 'رسالة من المعلم',
-        body: notificationMsg,
+        content: notificationMsg,
         type: 'teacher_message',
         read: false,
         created_at: new Date().toISOString(),

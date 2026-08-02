@@ -36,27 +36,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-      if (session?.user) {
-        fetchProfile(session.user.id)
-      } else {
-        setProfile(null)
-      }
+      (async () => {
+        setUser(session?.user ?? null)
+        if (session?.user) {
+          await fetchProfile(session.user.id)
+        } else {
+          setProfile(null)
+        }
+      })()
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
   async function signIn(email: string, password: string) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { error: error.message }
+    setLoading(true)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) { setLoading(false); return { error: error.message } }
+    if (data.user) {
+      await fetchProfile(data.user.id)
+    }
+    setLoading(false)
     return { error: null }
   }
 
   async function signUp(email: string, password: string, name: string, role: 'teacher' | 'student', teacherName?: string) {
+    setLoading(true)
     const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) return { error: error.message }
-    if (!data.user) return { error: 'فشل إنشاء الحساب' }
+    if (error) { setLoading(false); return { error: error.message } }
+    if (!data.user) { setLoading(false); return { error: 'فشل إنشاء الحساب' } }
 
     let teacherId: string | null = null
     if (role === 'student' && teacherName) {
@@ -81,30 +89,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       teacher_id: teacherId,
     })
 
-    if (profileError) return { error: profileError.message }
+    if (profileError) { setLoading(false); return { error: profileError.message } }
 
     // Send notification to teacher when student joins
     if (role === 'student' && teacherId && teacherName) {
-      // Create a pending request record
       await supabase.from('teacher_requests').insert({
         student_id: data.user.id,
         teacher_id: teacherId,
         student_name: name,
         status: 'pending',
-        created_at: new Date().toISOString(),
       })
 
-      // Send notification to teacher
       await supabase.from('notifications').insert({
         user_id: teacherId,
+        sender_id: data.user.id,
         title: 'طالب جديد يريد الانضمام',
-        body: `طالب باسم "${name}" يريد الانضمام إلى مجموعتك. يرجى قبول الطالب من صفحة الطلاب.`,
+        content: `طالب باسم "${name}" يريد الانضمام إلى مجموعتك. يرجى قبول الطالب من صفحة الطلاب.`,
         type: 'student_join_request',
         read: false,
-        created_at: new Date().toISOString(),
       })
     }
 
+    await fetchProfile(data.user.id)
+    setLoading(false)
     return { error: null }
   }
 
